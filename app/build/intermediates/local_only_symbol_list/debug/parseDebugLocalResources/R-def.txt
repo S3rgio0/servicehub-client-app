@@ -1,0 +1,17 @@
+R_DEF: Internal format may change without notice
+local
+color servicehub_background
+color servicehub_on_surface
+color servicehub_primary
+color servicehub_primary_dark
+color servicehub_surface
+color servicehub_surface_variant
+string app_name
+string google_maps_api_key
+string request_received_client
+string request_received_close
+string request_received_description
+string request_received_location
+string request_received_service
+string request_received_title
+style Theme.ServiceHubCliente

@@ -1,0 +1,8 @@
+<resources>
+    <color name="servicehub_primary">#1E5BFF</color>
+    <color name="servicehub_primary_dark">#1438A6</color>
+    <color name="servicehub_background">#F5F7FB</color>
+    <color name="servicehub_surface">#FFFFFF</color>
+    <color name="servicehub_surface_variant">#E9EDF7</color>
+    <color name="servicehub_on_surface">#162033</color>
+</resources>
