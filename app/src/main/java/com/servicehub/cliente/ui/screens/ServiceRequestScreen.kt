@@ -1,7 +1,6 @@
 package com.servicehub.cliente.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.servicehub.cliente.maps.ServiceHubMap
 import com.servicehub.cliente.ui.components.ServiceHubTopAppBar
 import com.servicehub.cliente.ui.components.ServiceInfoCard
@@ -44,6 +45,7 @@ import com.servicehub.cliente.viewmodel.ServiceRequestUiEvent
 import com.servicehub.cliente.viewmodel.ServiceRequestViewModel
 import kotlinx.coroutines.flow.collectLatest
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ServiceRequestScreen(
     viewModel: ServiceRequestViewModel,
@@ -53,20 +55,23 @@ fun ServiceRequestScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val granted = permissions.values.any { it }
-        viewModel.onLocationPermissionResult(granted)
+    val locationPermissionsState = rememberMultiplePermissionsState(
+        permissions = listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+    )
+
+    // Sync permission state with ViewModel
+    LaunchedEffect(locationPermissionsState.allPermissionsGranted) {
+        viewModel.onLocationPermissionResult(locationPermissionsState.allPermissionsGranted)
     }
 
+    // Trigger permission request on enter
     LaunchedEffect(Unit) {
-        locationPermissionLauncher.launch(
-            arrayOf(
-                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                android.Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
+        if (!locationPermissionsState.allPermissionsGranted) {
+            locationPermissionsState.launchMultiplePermissionRequest()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -90,13 +95,8 @@ fun ServiceRequestScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (!uiState.hasLocationPermission) {
-                        locationPermissionLauncher.launch(
-                            arrayOf(
-                                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                android.Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
+                    if (!locationPermissionsState.allPermissionsGranted) {
+                        locationPermissionsState.launchMultiplePermissionRequest()
                     } else {
                         viewModel.refreshCurrentLocation()
                     }
@@ -144,6 +144,13 @@ fun ServiceRequestScreen(
                     message = "Latitud: ${"%.6f".format(uiState.selectedCoordinates.latitude)} | Longitud: ${"%.6f".format(uiState.selectedCoordinates.longitude)}"
                 )
 
+                if (!locationPermissionsState.allPermissionsGranted) {
+                    ServiceInfoCard(
+                        title = "Permisos requeridos",
+                        message = "No se ha concedido permiso de ubicación. Puedes seleccionar el punto manualmente."
+                    )
+                }
+
                 uiState.locationMessage?.let { message ->
                     ServiceInfoCard(
                         title = "Estado de ubicación",
@@ -184,9 +191,10 @@ fun ServiceRequestScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                TextButton(
+                Button(
                     onClick = viewModel::submitRequest,
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
                     Text(text = "Buscar Profesionales")
                 }

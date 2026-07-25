@@ -1,61 +1,61 @@
 package com.servicehub.cliente.maps
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
 import com.servicehub.cliente.location.MapCoordinates
 
-/** Embeds the native Google Maps SDK inside Compose and lets the user pick a point. */
+/** 
+ * Embeds Google Maps using the maps-compose library.
+ * Allows the user to select a point on the map and shows a marker at the current selection.
+ */
 @Composable
 fun ServiceHubMap(
     selectedCoordinates: MapCoordinates,
     onCoordinatesSelected: (MapCoordinates) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val mapView = rememberMapViewWithLifecycle()
-    var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
-
-    AndroidView(
-        factory = { mapView },
-        modifier = modifier,
-        update = { view ->
-            if (googleMap == null) {
-                view.getMapAsync { map ->
-                    googleMap = map
-                    map.uiSettings.isZoomControlsEnabled = true
-                    map.uiSettings.isCompassEnabled = true
-                    map.uiSettings.isMyLocationButtonEnabled = false
-                    map.setOnMapClickListener { latLng ->
-                        onCoordinatesSelected(MapCoordinates(latLng.latitude, latLng.longitude))
-                    }
-                    renderSelectedPoint(map, selectedCoordinates)
-                }
-            }
-        }
-    )
-
-    LaunchedEffect(selectedCoordinates, googleMap) {
-        googleMap?.let { map ->
-            renderSelectedPoint(map, selectedCoordinates)
-        }
+    val initialLatLng = selectedCoordinates.toLatLng()
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(initialLatLng, 15f)
     }
-}
 
-private fun renderSelectedPoint(map: GoogleMap, coordinates: MapCoordinates) {
-    val latLng = coordinates.toLatLng()
-    map.clear()
-    map.addMarker(
-        MarkerOptions()
-            .position(latLng)
-            .title("Ubicación seleccionada")
-    )
-    map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+    // Update camera when selectedCoordinates change (e.g., when obtaining current location)
+    LaunchedEffect(selectedCoordinates) {
+        cameraPositionState.animate(
+            CameraUpdateFactory.newLatLngZoom(selectedCoordinates.toLatLng(), 15f)
+        )
+    }
+
+    GoogleMap(
+        modifier = modifier.fillMaxSize(),
+        cameraPositionState = cameraPositionState,
+        properties = MapProperties(
+            isMyLocationEnabled = false, // We handle location manually via ViewModel
+        ),
+        uiSettings = MapUiSettings(
+            zoomControlsEnabled = true,
+            compassEnabled = true,
+            myLocationButtonEnabled = false
+        ),
+        onMapClick = { latLng ->
+            onCoordinatesSelected(MapCoordinates(latLng.latitude, latLng.longitude))
+        }
+    ) {
+        Marker(
+            state = MarkerState(position = selectedCoordinates.toLatLng()),
+            title = "Ubicación seleccionada",
+            draggable = false
+        )
+    }
 }
